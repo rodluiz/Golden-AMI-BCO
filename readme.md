@@ -39,7 +39,7 @@ Step B | Find on AWS Marketplace the latest version of the Deep Learning AMI (Am
 Step C | Setup the Golden AMI pipeline environment in the AMI Generation account with the following CloudFormation template:
 ===
   https://github.com/rodluiz/Golden-AMI-BCO/blob/master/Gold-AMi-Stack-CFT-CI.yaml
-1. Open the following link, and  download the JSON file to your computer:
+1. Open the following link, and  download the YAML file to your computer:
   https://github.com/rodluiz/Golden-AMI-BCO/blob/master/Gold-AMi-Stack-CFT-CI.yaml
 2. Choose __CloudFormation__ in the Services menu (https://console.aws.amazon.com/cloudformation/home?region=us-east-1)
 3. Ensure that you are in your assigned region.
