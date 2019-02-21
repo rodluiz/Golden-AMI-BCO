@@ -45,7 +45,7 @@ Step C | Setup the Golden AMI pipeline environment in the AMI Generation account
 3. Ensure that you are in your assigned region.
 4. Choose __Create Stack__.
 5. Choose __Upload a template to Amazon S3__.
-6. Choose __Browse__ and then choose the CloudFormation template you downloaded (Gold-AMi-Stack-CFT-CI.json)
+6. Choose __Browse__ and then choose the CloudFormation template you downloaded (Gold-AMi-Stack-CFT-CI.yaml)
 7. Choose Next.
 8. On the __Specify Details__ page, specify a Stack name and the following parameters (values are case-sensitive)
 
