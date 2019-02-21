@@ -1,0 +1,205 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  EnvironmentValue:
+      Type: String
+      Default: "Dev"
+      AllowedValues: ["Dev","QA","Prod","Test"]
+      Description: Qual o environment desejado?
+
+  InstanceName:
+      Type: String
+
+  AMIID:
+    Description: AMI-ID
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: AMI_ID_TO_REPLACE
+    ConstraintDescription: Must supply the SSM parameter id in which AMI-ID is stored.
+
+  SecGroupId:
+      Description: "Id of the security group"
+      Type: String
+
+  InstanceSubnet:
+    Description: "Subnet to create the Instance"
+    Type: String
+    AllowedValues: ["SubnetPrivateA", "SubnetPrivateB"]
+########################## TAGS #############################
+  CostCenter:
+    Description: Centro Costos del proyecto.
+    Type: String
+    AllowedPattern: '[a-zA-Z0-9].+'
+    MinLength: '1'
+    MaxLength: '2048'
+
+  Owner:
+    Description: Unidad de Negocio due?a de la aplicacion.
+    Type: String
+    AllowedPattern: '[a-zA-Z0-9].+'
+    MinLength: '1'
+    MaxLength: '2048'
+######################### END TAGS ###########################
+
+Mappings:
+  Environments:
+    #EXAMPLE
+    Test:
+      LowerCase: test
+      VPC: vpc-0fa34ae8ae0d91445 
+      InstanceType: t2.micro
+      KeyPair: rodrigo.santos
+      HostedZoneId: Z58QRBGOWVQ7H
+      HostedZoneIdPub: ZUAM1UUVK65AJ
+      HostedZoneName: teste.org.
+      SubnetPrivateA: subnet-00e627abf1ac8d35d
+      SubnetPublicA: subnet-0090fb0e223990ee9
+    Dev:
+      LowerCase: dev
+      VPC: <DEV_VPC_ID>
+      InstanceType: <INSTANCE_TYPE>
+      KeyPair: <KEY_PAIR_NAME>
+      HostedZoneId: <PRIVATE_HOSTED_ZONE_ID>
+      HostedZoneIdPub: <PUBLIC_HOSTED_ZONE_ID>
+      HostedZoneName: <HOSTED_ZONE_NAME>
+      SubnetPrivateA: <PRIVATE_DEV_SUBNET_ID>
+      SubnetPrivateB: <PRIVATE_DEV_SUBNET_ID>
+      SubnetPublicA: <PUBLIC_DEV_SUBNET_ID>
+      SubnetPublicC: <PUBLIC_DEV_SUBNET_ID>
+
+    QA:
+      LowerCase: qa
+      VPC: <QA_VPC_ID>
+      InstanceType: <INSTANCE_TYPE>
+      KeyPair: <KEY_PAIR_NAME>
+      HostedZoneId: <PRIVATE_HOSTED_ZONE_ID>
+      HostedZoneIdPub: <PUBLIC_HOSTED_ZONE_ID>
+      HostedZoneName: <HOSTED_ZONE_NAME>
+      SubnetPrivateA: <PRIVATE_QA_SUBNET_ID>
+      SubnetPrivateB: <PRIVATE_QA_SUBNET_ID>
+      SubnetPublicA: <PUBLIC_QA_SUBNET_ID>
+      SubnetPublicC: <PUBLIC_QA_SUBNET_ID>
+
+    Prod:
+      LowerCase: prod
+      VPC: <QA_VPC_ID>
+      InstanceType: <INSTANCE_TYPE>
+      KeyPair: <KEY_PAIR_NAME>
+      HostedZoneId: <PRIVATE_HOSTED_ZONE_ID>
+      HostedZoneIdPub: <PUBLIC_HOSTED_ZONE_ID>
+      HostedZoneName: <HOSTED_ZONE_NAME>
+      SubnetPrivateA: <PRIVATE_PROD_SUBNET_ID>
+      SubnetPrivateB: <PRIVATE_PROD_SUBNET_ID>
+      SubnetPublicA: <PUBLIC_PROD_SUBNET_ID>
+      SubnetPublicC: <PUBLIC_PROD_SUBNET_ID>
+
+Resources:
+  IAMRoleEC2:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+  IAMInstanceProfileEC2:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref 'IAMRoleEC2'
+  RolePolicyEC2AWSLogs:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Join
+        - '-'
+        - - RolePolicy
+          - !Ref 'EnvironmentValue'
+          - AWSLogs
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:DescribeLogStreams
+              - logs:DescribeLogGroups
+              - cloudwatch:PutMetricData
+              - ec2:DescribeTags
+            Resource:
+              - "*"
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+            Resource:
+              - "arn:aws:ssm:*:*:parameter/AmazonCloudWatch-*"
+      Roles:
+        - !Ref 'IAMRoleEC2'
+
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      Monitoring: 'True'
+      ImageId: !Ref AMIID
+      KeyName: !FindInMap
+        - Environments
+        - !Ref 'EnvironmentValue'
+        - KeyPair
+      InstanceType: !FindInMap
+        - Environments
+        - !Ref 'EnvironmentValue'
+        - InstanceType
+      IamInstanceProfile: !Ref 'IAMInstanceProfileEC2'
+      Tags:
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - Bancolombia
+              - !Ref 'EnvironmentValue'
+              - !Ref 'InstanceName'
+        - Key: App
+          Value: !Ref 'InstanceName'
+        - Key: Environment
+          Value: !Ref 'EnvironmentValue'
+
+        - Key: "Cost center"
+          Value: !Ref CostCenter
+        - Key: "Owner"
+          Value: !Ref Owner
+
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: 'true'
+          DeviceIndex: '0'
+          GroupSet:
+            - !Ref SecGroupId
+          SubnetId: !FindInMap
+            - Environments
+            - !Ref 'EnvironmentValue'
+            - !Ref InstanceSubnet
+#      UserData:
+#        Fn::Base64:
+#          !Sub |
+#            #!/bin/bash
+#            mkdir tempcloudwatch
+#            cd tempcloudwatch
+#            yum install wget -y
+#            yum install unzip -y
+#            wget https://s3.amazonaws.com/amazoncloudwatch-agent/linux/amd64/latest/AmazonCloudWatchAgent.zip
+#            unzip AmazonCloudWatchAgent.zip
+#            sudo ./install.sh
+#            wget https://s3.amazonaws.com/custom-cw-metrics/custom-metrics.json -O config.json
+#            sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:config.json -s
+
+Outputs:
+    EC2AvZone:
+      Value: !GetAtt EC2Instance.AvailabilityZone
+      Export:
+        Name: !Sub "${AWS::StackName}-ec2-av-zone"
+    EC2Id:
+      Value: !Ref EC2Instance
+      Export:
+        Name: !Sub "${AWS::StackName}-ec2-id"
